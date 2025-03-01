@@ -9,7 +9,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const corsOptions = {
-    origin: process.env.FRONTEND_URL || "http://localhost:3001"
+    origin: process.env.FRONTEND_URL
 };
 
 app.use(express.json());
@@ -111,6 +111,43 @@ app.get("/weather/coordinates", async (req: Request, res: Response) => {
         res.status(500).json({ error: "Erro interno no servidor" });
     }
 });
+
+const getPlacesAutocomplete = async (req: Request, res: Response) => {
+    try {
+        const input = req.query.input as string;
+
+        if (!input) {
+            res.status(400).json({ error: "O parâmetro 'input' é obrigatório." });
+            return;
+        }
+
+        const API_KEY = process.env.GOOGLE_API_KEY;
+        const API_URL = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=(cities)&key=${API_KEY}`;
+
+        const response = await fetch(API_URL);
+        const data = await response.json();
+
+        if (data.status !== "OK") {
+            res.status(400).json({ error: "Erro ao buscar sugestões", details: data });
+            return;
+        }
+
+        const suggestions = data.predictions.map((place: any) => ({
+            name: place.description,
+        }));
+
+        res.json(suggestions);
+        return;
+    } catch (error) {
+        console.error("Erro ao buscar sugestões:", error);
+        res.status(500).json({ error: "Erro ao buscar sugestões." });
+        return;
+    }
+};
+
+app.get("/places/autocomplete", getPlacesAutocomplete);
+
+
 
 app.listen(PORT, () => {
     log(`Servidor ouvindo na porta ${PORT}`);
